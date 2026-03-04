@@ -153,11 +153,61 @@ def open_pdf(pdf_bytes, password=None):
         raise e
 
 
+def to_num(cell):
+    """Convert cell string to float, return None if not a number."""
+    try:
+        return float(str(cell).replace(",", "").replace(" ", ""))
+    except (ValueError, TypeError):
+        return None
+
+
+def detect_columns(raw_rows):
+    """
+    Detect which column index maps to Debit, Credit, Balance
+    by finding the header row first.
+    Returns (debit_idx, credit_idx, balance_idx, desc_idx) or None.
+    """
+    header_keywords = {
+        "debit":   ["debit", "withdrawal", "dr"],
+        "credit":  ["credit", "deposit", "cr"],
+        "balance": ["balance"],
+        "desc":    ["description", "particulars", "narration", "details"],
+    }
+    for row in raw_rows[:20]:  # Only scan first 20 rows for header
+        if not row:
+            continue
+        cleaned = [str(c).lower().strip() if c else "" for c in row]
+        row_text = " ".join(cleaned)
+
+        debit_idx = credit_idx = balance_idx = desc_idx = None
+        for i, cell in enumerate(cleaned):
+            for kw in header_keywords["debit"]:
+                if kw in cell:
+                    debit_idx = i
+            for kw in header_keywords["credit"]:
+                if kw in cell:
+                    credit_idx = i
+            for kw in header_keywords["balance"]:
+                if kw in cell:
+                    balance_idx = i
+            for kw in header_keywords["desc"]:
+                if kw in cell:
+                    desc_idx = i
+
+        if debit_idx is not None and balance_idx is not None:
+            return debit_idx, credit_idx, balance_idx, desc_idx
+
+    return None
+
+
 def parse_transactions(raw_rows):
     records = []
     date_pattern = re.compile(r'\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2}')
     skip_keywords = ["transaction", "date", "description", "balance", "debit", "credit",
                      "opening", "closing", "statement", "account", "page"]
+
+    # Try to detect column positions from header row
+    col_map = detect_columns(raw_rows)
 
     for row in raw_rows:
         if not row:
@@ -167,6 +217,7 @@ def parse_transactions(raw_rows):
         if any(k in row_text for k in skip_keywords):
             continue
 
+        # Must have a date
         date_val = ""
         for cell in cleaned[:4]:
             m = date_pattern.search(cell)
@@ -176,25 +227,70 @@ def parse_transactions(raw_rows):
         if not date_val:
             continue
 
-        numbers = []
-        desc = ""
-        for cell in cleaned:
-            cell_clean = cell.replace(",", "").replace(" ", "")
-            try:
-                val = float(cell_clean)
-                if val > 0:
-                    numbers.append(val)
-            except ValueError:
-                if len(cell) > 6 and not date_pattern.search(cell):
-                    desc = cell
-
         debit = credit = balance = None
-        if len(numbers) >= 3:
-            debit, credit, balance = numbers[-3], numbers[-2], numbers[-1]
-        elif len(numbers) == 2:
-            credit, balance = numbers[-2], numbers[-1]
-        elif len(numbers) == 1:
-            balance = numbers[-1]
+        desc = ""
+
+        if col_map:
+            # Use detected column positions
+            debit_idx, credit_idx, balance_idx, desc_idx = col_map
+
+            if debit_idx is not None and debit_idx < len(cleaned):
+                debit = to_num(cleaned[debit_idx])
+
+            if credit_idx is not None and credit_idx < len(cleaned):
+                credit = to_num(cleaned[credit_idx])
+
+            if balance_idx is not None and balance_idx < len(cleaned):
+                balance = to_num(cleaned[balance_idx])
+
+            if desc_idx is not None and desc_idx < len(cleaned):
+                desc = cleaned[desc_idx]
+            else:
+                # Find longest non-date text cell as description
+                for cell in cleaned:
+                    if len(cell) > 6 and not date_pattern.search(cell):
+                        try:
+                            float(cell.replace(",","").replace(" ",""))
+                        except ValueError:
+                            desc = cell
+                            break
+        else:
+            # Fallback: use position-based logic
+            # Collect all numeric values with their column index
+            num_cols = []
+            for i, cell in enumerate(cleaned):
+                val = to_num(cell)
+                if val is not None and val > 0:
+                    num_cols.append((i, val))
+                elif len(cell) > 6 and not date_pattern.search(cell):
+                    try:
+                        float(cell.replace(",","").replace(" ",""))
+                    except ValueError:
+                        desc = cell
+
+            # Last number = balance, second last = credit or debit
+            # Determine debit vs credit by checking if cell is empty
+            if len(num_cols) >= 2:
+                balance = num_cols[-1][1]
+                # Check original cells: if debit cell is empty -> it's a credit, vice versa
+                if len(num_cols) >= 3:
+                    # Three numbers: could be debit, credit, balance
+                    # Check which of the two middle positions has empty sibling
+                    d_idx, d_val = num_cols[-3]
+                    c_idx, c_val = num_cols[-2]
+                    # Use column position — lower index = debit, higher = credit
+                    debit  = d_val
+                    credit = None
+                elif len(num_cols) == 2:
+                    # Only one amount + balance
+                    amt_idx, amt_val = num_cols[-2]
+                    # Check surrounding empty cells to determine debit vs credit
+                    # If there's an empty cell after the amount = debit (credit col empty)
+                    after_idx = amt_idx + 1
+                    if after_idx < len(cleaned) and cleaned[after_idx] == "":
+                        debit = amt_val
+                    else:
+                        credit = amt_val
 
         date_obj = None
         for fmt in ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%b-%Y", "%m/%d/%Y"]:
