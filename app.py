@@ -1,7 +1,6 @@
 """
 Bank Statement to Excel Converter
-Streamlit Web App — Works with any bank, any country
-Supports both password-protected and regular PDFs
+Personal Finance Toolkit — For authorized use only
 """
 
 import streamlit as st
@@ -23,45 +22,80 @@ st.markdown("""
 <style>
     .stApp { background-color: #f0f4f8; }
     #MainMenu, footer, header { visibility: hidden; }
+
     .header-banner {
         background: linear-gradient(135deg, #1F3864, #2E75B6);
         padding: 28px 32px; border-radius: 12px;
         text-align: center; margin-bottom: 20px;
         box-shadow: 0 4px 15px rgba(31,56,100,0.3);
     }
-    .header-banner h1 { color: white; font-size: 26px; font-weight: 700; margin: 0 0 6px 0; font-family: Arial; }
+    .header-banner h1 { color: white; font-size: 24px; font-weight: 700; margin: 0 0 6px 0; font-family: Arial; }
     .header-banner p  { color: #BDD7EE; font-size: 13px; margin: 0; font-family: Arial; }
+
     .step-label { font-weight: 700; color: #1F3864; font-size: 15px; font-family: Arial; margin-bottom: 6px; }
-    .info-box {
+
+    .who-box {
+        background: #E8F5E9; border-left: 4px solid #70AD47;
+        padding: 14px 18px; border-radius: 6px;
+        font-family: Arial; font-size: 13px; color: #1F3864;
+        margin-bottom: 14px;
+    }
+    .legal-box {
+        background: #FFF3E0; border-left: 4px solid #FF6F00;
+        padding: 14px 18px; border-radius: 6px;
+        font-family: Arial; font-size: 13px; color: #4E342E;
+        margin-bottom: 14px;
+    }
+    .privacy-box {
         background: #E3F2FD; border-left: 4px solid #2E75B6;
-        padding: 10px 14px; border-radius: 4px;
-        font-size: 13px; color: #1F3864;
-        margin: 6px 0 14px 0; font-family: Arial;
+        padding: 12px 16px; border-radius: 6px;
+        font-family: Arial; font-size: 13px; color: #1F3864;
+        margin-top: 16px;
+    }
+    .eula-box {
+        background: #F3E5F5; border-left: 4px solid #7B1FA2;
+        padding: 14px 18px; border-radius: 6px;
+        font-family: Arial; font-size: 13px; color: #311B92;
+        margin-bottom: 14px;
+        max-height: 200px; overflow-y: auto;
+    }
+    .offline-box {
+        background: #E8EAF6; border-left: 4px solid #3949AB;
+        padding: 14px 18px; border-radius: 6px;
+        font-family: Arial; font-size: 13px; color: #1A237E;
+        margin-top: 14px;
     }
     .error-box {
         background: #FFEBEE; border-left: 4px solid #C00000;
-        padding: 14px 18px; border-radius: 6px; color: #C00000; font-family: Arial;
+        padding: 14px 18px; border-radius: 6px;
+        color: #C00000; font-family: Arial;
     }
-    .footer { text-align: center; color: #888; font-size: 12px; padding: 16px 0 8px 0; font-family: Arial; }
+    .footer {
+        text-align: center; color: #888; font-size: 12px;
+        padding: 16px 0 8px 0; font-family: Arial;
+    }
     [data-testid="stFileUploader"] {
-        background: #F7FBFF; border-radius: 8px; border: 2px dashed #2E75B6; padding: 8px;
+        background: #F7FBFF; border-radius: 8px;
+        border: 2px dashed #2E75B6; padding: 8px;
     }
     .stButton > button {
         background: linear-gradient(135deg, #1F3864, #2E75B6) !important;
-        color: white !important; font-size: 15px !important; font-weight: 700 !important;
-        padding: 12px !important; border-radius: 8px !important; border: none !important;
+        color: white !important; font-size: 15px !important;
+        font-weight: 700 !important; padding: 12px !important;
+        border-radius: 8px !important; border: none !important;
         width: 100% !important; font-family: Arial !important;
     }
     .stDownloadButton > button {
         background: linear-gradient(135deg, #375623, #70AD47) !important;
-        color: white !important; font-size: 14px !important; font-weight: 700 !important;
-        padding: 10px !important; border-radius: 8px !important; border: none !important;
+        color: white !important; font-size: 14px !important;
+        font-weight: 700 !important; padding: 10px !important;
+        border-radius: 8px !important; border: none !important;
         width: 100% !important; font-family: Arial !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Default categories ────────────────────────────────────────────────────────
+# ── Default categories ─────────────────────────────────────────────────────
 DEFAULT_CATEGORIES = [
     ("Netflix", "Entertainment"), ("Spotify", "Entertainment"), ("YouTube", "Entertainment"),
     ("LINKEDIN", "Professional"), ("Coursera", "Education"), ("Google One", "Utilities"),
@@ -76,7 +110,7 @@ DEFAULT_CATEGORIES = [
     ("Funds Transfer", "Transfer"), ("Transfer", "Transfer"),
 ]
 
-# ── Library imports ───────────────────────────────────────────────────────────
+# ── Library imports ────────────────────────────────────────────────────────
 try:
     import pikepdf
     PIKEPDF_OK = True
@@ -100,9 +134,9 @@ try:
 except ImportError:
     OPENPYXL_OK = False
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
 # CORE FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
 
 def categorize(description, lookup_df):
     if not description or pd.isna(description):
@@ -115,46 +149,7 @@ def categorize(description, lookup_df):
     return "Uncategorised"
 
 
-def open_pdf(pdf_bytes, password=None):
-    """Open PDF — tries without password first, then with password if provided."""
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(pdf_bytes)
-        tmp_path = tmp.name
-
-    unlocked_buf = io.BytesIO()
-
-    try:
-        # Try opening without password first
-        with pikepdf.open(tmp_path) as p:
-            p.save(unlocked_buf)
-        unlocked_buf.seek(0)
-        os.unlink(tmp_path)
-        return unlocked_buf, False  # False = was not password protected
-
-    except pikepdf.PasswordError:
-        # PDF is password protected
-        if not password:
-            os.unlink(tmp_path)
-            raise ValueError("This PDF is password protected. Please enter the password.")
-        try:
-            unlocked_buf = io.BytesIO()
-            with pikepdf.open(tmp_path, password=password) as p:
-                p.save(unlocked_buf)
-            unlocked_buf.seek(0)
-            os.unlink(tmp_path)
-            return unlocked_buf, True  # True = was password protected
-
-        except pikepdf.PasswordError:
-            os.unlink(tmp_path)
-            raise ValueError("Wrong password. Please check and try again.")
-
-    except Exception as e:
-        os.unlink(tmp_path)
-        raise e
-
-
 def to_num(cell):
-    """Convert cell string to float, return None if not a number."""
     try:
         return float(str(cell).replace(",", "").replace(" ", ""))
     except (ValueError, TypeError):
@@ -162,42 +157,59 @@ def to_num(cell):
 
 
 def detect_columns(raw_rows):
-    """
-    Detect which column index maps to Debit, Credit, Balance
-    by finding the header row first.
-    Returns (debit_idx, credit_idx, balance_idx, desc_idx) or None.
-    """
     header_keywords = {
         "debit":   ["debit", "withdrawal", "dr"],
         "credit":  ["credit", "deposit", "cr"],
         "balance": ["balance"],
         "desc":    ["description", "particulars", "narration", "details"],
     }
-    for row in raw_rows[:20]:  # Only scan first 20 rows for header
+    for row in raw_rows[:20]:
         if not row:
             continue
         cleaned = [str(c).lower().strip() if c else "" for c in row]
-        row_text = " ".join(cleaned)
-
         debit_idx = credit_idx = balance_idx = desc_idx = None
         for i, cell in enumerate(cleaned):
             for kw in header_keywords["debit"]:
-                if kw in cell:
-                    debit_idx = i
+                if kw in cell: debit_idx = i
             for kw in header_keywords["credit"]:
-                if kw in cell:
-                    credit_idx = i
+                if kw in cell: credit_idx = i
             for kw in header_keywords["balance"]:
-                if kw in cell:
-                    balance_idx = i
+                if kw in cell: balance_idx = i
             for kw in header_keywords["desc"]:
-                if kw in cell:
-                    desc_idx = i
-
+                if kw in cell: desc_idx = i
         if debit_idx is not None and balance_idx is not None:
             return debit_idx, credit_idx, balance_idx, desc_idx
-
     return None
+
+
+def open_pdf(pdf_bytes, password=None):
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(pdf_bytes)
+        tmp_path = tmp.name
+    unlocked_buf = io.BytesIO()
+    try:
+        with pikepdf.open(tmp_path) as p:
+            p.save(unlocked_buf)
+        unlocked_buf.seek(0)
+        os.unlink(tmp_path)
+        return unlocked_buf, False
+    except pikepdf.PasswordError:
+        if not password:
+            os.unlink(tmp_path)
+            raise ValueError("This PDF is password protected. Please enter your password below.")
+        try:
+            unlocked_buf = io.BytesIO()
+            with pikepdf.open(tmp_path, password=password) as p:
+                p.save(unlocked_buf)
+            unlocked_buf.seek(0)
+            os.unlink(tmp_path)
+            return unlocked_buf, True
+        except pikepdf.PasswordError:
+            os.unlink(tmp_path)
+            raise ValueError("Incorrect password. Please check and try again.")
+    except Exception as e:
+        os.unlink(tmp_path)
+        raise e
 
 
 def parse_transactions(raw_rows):
@@ -205,8 +217,6 @@ def parse_transactions(raw_rows):
     date_pattern = re.compile(r'\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2}')
     skip_keywords = ["transaction", "date", "description", "balance", "debit", "credit",
                      "opening", "closing", "statement", "account", "page"]
-
-    # Try to detect column positions from header row
     col_map = detect_columns(raw_rows)
 
     for row in raw_rows:
@@ -217,7 +227,6 @@ def parse_transactions(raw_rows):
         if any(k in row_text for k in skip_keywords):
             continue
 
-        # Must have a date
         date_val = ""
         for cell in cleaned[:4]:
             m = date_pattern.search(cell)
@@ -231,22 +240,16 @@ def parse_transactions(raw_rows):
         desc = ""
 
         if col_map:
-            # Use detected column positions
             debit_idx, credit_idx, balance_idx, desc_idx = col_map
-
             if debit_idx is not None and debit_idx < len(cleaned):
                 debit = to_num(cleaned[debit_idx])
-
             if credit_idx is not None and credit_idx < len(cleaned):
                 credit = to_num(cleaned[credit_idx])
-
             if balance_idx is not None and balance_idx < len(cleaned):
                 balance = to_num(cleaned[balance_idx])
-
             if desc_idx is not None and desc_idx < len(cleaned):
                 desc = cleaned[desc_idx]
             else:
-                # Find longest non-date text cell as description
                 for cell in cleaned:
                     if len(cell) > 6 and not date_pattern.search(cell):
                         try:
@@ -255,8 +258,6 @@ def parse_transactions(raw_rows):
                             desc = cell
                             break
         else:
-            # Fallback: use position-based logic
-            # Collect all numeric values with their column index
             num_cols = []
             for i, cell in enumerate(cleaned):
                 val = to_num(cell)
@@ -268,24 +269,13 @@ def parse_transactions(raw_rows):
                     except ValueError:
                         desc = cell
 
-            # Last number = balance, second last = credit or debit
-            # Determine debit vs credit by checking if cell is empty
             if len(num_cols) >= 2:
                 balance = num_cols[-1][1]
-                # Check original cells: if debit cell is empty -> it's a credit, vice versa
                 if len(num_cols) >= 3:
-                    # Three numbers: could be debit, credit, balance
-                    # Check which of the two middle positions has empty sibling
-                    d_idx, d_val = num_cols[-3]
-                    c_idx, c_val = num_cols[-2]
-                    # Use column position — lower index = debit, higher = credit
-                    debit  = d_val
+                    debit  = num_cols[-3][1]
                     credit = None
                 elif len(num_cols) == 2:
-                    # Only one amount + balance
                     amt_idx, amt_val = num_cols[-2]
-                    # Check surrounding empty cells to determine debit vs credit
-                    # If there's an empty cell after the amount = debit (credit col empty)
                     after_idx = amt_idx + 1
                     if after_idx < len(cleaned) and cleaned[after_idx] == "":
                         debit = amt_val
@@ -540,32 +530,104 @@ def build_excel(df):
     return buf
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
 # UI
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
 
+# ── Header ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="header-banner">
-    <h1>📊 Bank Statement to Excel Converter</h1>
-    <p>Upload your bank statement PDF · Auto-categorize transactions · Download Excel with Dashboard</p>
+    <h1>📊 Personal Bank Statement to Excel Converter</h1>
+    <p>Convert your own bank statement PDF into a categorized Excel file with dashboard · Any bank · Any country</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Step 1 — Upload PDF
+# ── Who this is for ────────────────────────────────────────────────────────
+with st.expander("👤  Who is this tool for?", expanded=False):
+    st.markdown("""
+    <div class="who-box">
+    <strong>✅ This tool is designed for:</strong><br><br>
+    &nbsp;&nbsp;• <strong>Individuals</strong> who want to track and understand their own spending<br>
+    &nbsp;&nbsp;• <strong>Freelancers & self-employed</strong> managing personal income and expenses<br>
+    &nbsp;&nbsp;• <strong>Small business owners</strong> reconciling their own business account<br>
+    &nbsp;&nbsp;• <strong>Accountants & auditors</strong> working with client statements they are authorized to access<br>
+    &nbsp;&nbsp;• <strong>Students & researchers</strong> learning about personal finance management<br><br>
+    <strong>❌ This tool is NOT for:</strong><br><br>
+    &nbsp;&nbsp;• Accessing or processing documents you do not own or are not authorized to use<br>
+    &nbsp;&nbsp;• Bypassing security on documents belonging to others<br>
+    &nbsp;&nbsp;• Any illegal or unauthorized financial activity
+    </div>
+    """, unsafe_allow_html=True)
+
+# ── EULA ───────────────────────────────────────────────────────────────────
+st.markdown('<div class="step-label">📜 Terms of Use — Please read and agree before proceeding</div>',
+            unsafe_allow_html=True)
+
+st.markdown("""
+<div class="eula-box">
+<strong>END USER LICENSE AGREEMENT (EULA)</strong><br><br>
+
+By using this tool, you agree to the following terms:<br><br>
+
+<strong>1. Authorized Use Only</strong><br>
+You may only use this tool to process bank statement PDFs that you own or have explicit written authorization to access and modify. Unauthorized use of third-party documents is strictly prohibited.<br><br>
+
+<strong>2. Password Usage</strong><br>
+This tool does NOT crack, guess, or brute-force any passwords. It only opens a PDF after you provide the correct password — the same way you would open it manually. The tool then saves an accessible copy for your personal use.<br><br>
+
+<strong>3. No Liability</strong><br>
+The creator of this tool accepts no liability for any misuse, data loss, or damages resulting from use of this tool. You use it entirely at your own risk.<br><br>
+
+<strong>4. Personal Use</strong><br>
+This tool is licensed for personal or internal business use only. You may not redistribute, resell, or sublicense this tool without written permission.<br><br>
+
+<strong>5. Data Privacy</strong><br>
+Your uploaded files are processed entirely in server memory and are permanently deleted after your session ends. No data is stored, logged, or shared with any third party.<br><br>
+
+<strong>6. Compliance</strong><br>
+You are solely responsible for ensuring your use of this tool complies with all applicable laws, regulations, and your bank's terms of service in your jurisdiction.
+</div>
+""", unsafe_allow_html=True)
+
+eula_agreed = st.checkbox(
+    "✅ I have read and agree to the Terms of Use. I confirm I am authorized to process the PDF I am uploading.",
+    value=False
+)
+
+if not eula_agreed:
+    st.info("👆 Please agree to the Terms of Use above to proceed.")
+    st.stop()
+
+st.success("✅ Thank you. You may now use the tool.")
+st.divider()
+
+# ── Step 1: Upload PDF ─────────────────────────────────────────────────────
 st.markdown('<div class="step-label">Step 1 — Upload your bank statement PDF</div>',
             unsafe_allow_html=True)
-st.markdown('<div class="info-box">📄 Works with any bank, any country. Supports both regular and password-protected PDFs.</div>',
-            unsafe_allow_html=True)
+st.markdown("""
+<div style="background:#F0F4F8;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:13px;font-family:Arial;color:#1F3864;">
+    📄 Upload <strong>your own</strong> bank statement PDF.
+    Works with both regular PDFs and password-protected PDFs.
+    Supports any bank worldwide.
+</div>
+""", unsafe_allow_html=True)
+
 uploaded_pdf = st.file_uploader("", type=["pdf"], label_visibility="collapsed")
 if uploaded_pdf:
     st.caption(f"📄 **{uploaded_pdf.name}**  ({round(uploaded_pdf.size/1024, 1)} KB)")
 st.divider()
 
-# Step 2 — Password (optional)
+# ── Step 2: Password ───────────────────────────────────────────────────────
 st.markdown('<div class="step-label">Step 2 — PDF password (only if your PDF is protected)</div>',
             unsafe_allow_html=True)
-st.markdown('<div class="info-box">🔓 If your PDF opens normally without a password, leave this blank.</div>',
-            unsafe_allow_html=True)
+st.markdown("""
+<div class="legal-box">
+    🔐 <strong>Important:</strong> Only enter a password that you already know and are authorized to use.
+    This tool does <strong>not</strong> crack or guess passwords — it only opens the file
+    after you provide the correct password, exactly like opening it manually.
+</div>
+""", unsafe_allow_html=True)
+
 cp, cs = st.columns([3, 1])
 with cp:
     password = st.text_input("", type="password",
@@ -576,7 +638,7 @@ with cs:
         st.info(f"🔑 **{password}**")
 st.divider()
 
-# Step 3 — Categories
+# ── Step 3: Categories ─────────────────────────────────────────────────────
 st.markdown('<div class="step-label">Step 3 — Categories (optional)</div>',
             unsafe_allow_html=True)
 lookup_df = pd.DataFrame(DEFAULT_CATEGORIES, columns=["Look up", "Placed"])
@@ -593,15 +655,16 @@ if use_custom:
                 st.warning("⚠️ File needs 'Look up' and 'Placed' columns. Using defaults.")
         except Exception as e:
             st.warning(f"Could not read file: {e}")
+
 with st.expander("👀 View active categories"):
     st.dataframe(lookup_df, use_container_width=True, height=180)
 st.divider()
 
-# Step 4 — Convert
+# ── Step 4: Convert ────────────────────────────────────────────────────────
 st.markdown('<div class="step-label">Step 4 — Convert to Excel</div>',
             unsafe_allow_html=True)
 
-if st.button("📊  Convert Bank Statement to Excel", use_container_width=True):
+if st.button("📊  Convert My Bank Statement to Excel", use_container_width=True):
     if not uploaded_pdf:
         st.markdown('<div class="error-box">⚠️ Please upload a PDF file first.</div>',
                     unsafe_allow_html=True)
@@ -609,12 +672,11 @@ if st.button("📊  Convert Bank Statement to Excel", use_container_width=True):
         pdf_bytes = uploaded_pdf.read()
         base_name = os.path.splitext(uploaded_pdf.name)[0]
 
-        # Open PDF (with or without password)
         with st.spinner("📂 Opening PDF..."):
             try:
                 unlocked_buf, was_protected = open_pdf(pdf_bytes, password if password else None)
                 if was_protected:
-                    st.success("✅ PDF opened successfully!")
+                    st.success("✅ Password accepted — PDF opened successfully!")
                 else:
                     st.success("✅ PDF loaded successfully!")
             except ValueError as e:
@@ -625,7 +687,6 @@ if st.button("📊  Convert Bank Statement to Excel", use_container_width=True):
                             unsafe_allow_html=True)
                 st.stop()
 
-        # Extract transactions
         df = pd.DataFrame()
         with st.spinner("📑 Extracting transactions..."):
             try:
@@ -640,16 +701,15 @@ if st.button("📊  Convert Bank Statement to Excel", use_container_width=True):
                 os.unlink(tmp2_path)
                 df = parse_transactions(raw_rows)
                 if df.empty:
-                    st.warning("⚠️ No transactions could be extracted from this PDF layout.")
+                    st.warning("⚠️ No transactions found. PDF layout may differ from supported formats.")
                 else:
                     st.success(f"✅ Extracted {len(df)} transactions!")
             except Exception as e:
                 st.warning(f"⚠️ Extraction error: {e}")
 
-        # Categorize + build Excel
         excel_buf = None
         if not df.empty:
-            with st.spinner("🏷 Categorizing & building Excel..."):
+            with st.spinner("🏷 Categorizing & building Excel dashboard..."):
                 df["Category"] = df["Description"].apply(
                     lambda d: categorize(d, lookup_df))
                 categorised = (df["Category"] != "Uncategorised").sum()
@@ -660,7 +720,6 @@ if st.button("📊  Convert Bank Statement to Excel", use_container_width=True):
                 except Exception as e:
                     st.warning(f"Excel error: {e}")
 
-            # Preview
             st.markdown("---")
             st.markdown("### 📋 Transaction Preview")
             st.dataframe(
@@ -674,9 +733,8 @@ if st.button("📊  Convert Bank Statement to Excel", use_container_width=True):
             net = df['Credit'].dropna().sum() - abs(df['Debit'].dropna().sum())
             c3.metric("📈 Net Savings", f"{net:,.0f}")
 
-        # Downloads
         st.markdown("---")
-        st.markdown("### ⬇️ Download")
+        st.markdown("### ⬇️ Download Your Files")
         d1, d2 = st.columns(2)
         with d1:
             st.download_button(
@@ -698,14 +756,34 @@ if st.button("📊  Convert Bank Statement to Excel", use_container_width=True):
             else:
                 st.info("Excel not available for this PDF layout.")
 
-# Privacy + footer
+# ── Privacy Statement ──────────────────────────────────────────────────────
 st.markdown("""
-<div style="background:#F0F4F8;border-radius:8px;padding:12px 16px;margin-top:16px;">
-    🔒 <strong>Privacy:</strong> Your file is processed entirely in memory and is never saved or stored anywhere.
+<div class="privacy-box">
+    🔒 <strong>Privacy & Security Guarantee:</strong><br>
+    Your uploaded files are processed <strong>entirely in server memory</strong> and are
+    <strong>never saved, stored, logged, or shared</strong> with anyone.
+    Files are permanently deleted the moment your session ends.
+    No personal data or financial information is retained by this tool.
 </div>
 """, unsafe_allow_html=True)
+
+# ── Offline Option ─────────────────────────────────────────────────────────
+st.markdown("""
+<div class="offline-box">
+    💻 <strong>Prefer to work offline?</strong><br>
+    If you are uncomfortable uploading financial documents online, a
+    <strong>fully offline version</strong> of this tool is included in the product bundle.
+    It runs entirely on your own computer — no internet connection required,
+    no data ever leaves your machine.
+    Check the product files for <strong>Bank_Statement_Unlocker.py</strong> setup instructions.
+</div>
+""", unsafe_allow_html=True)
+
+# ── Footer ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
-    Bank Statement to Excel Converter &nbsp;|&nbsp; Works with any bank worldwide &nbsp;|&nbsp; For personal use only
+    Personal Bank Statement to Excel Converter &nbsp;|&nbsp;
+    For authorized personal use only &nbsp;|&nbsp;
+    Any bank · Any country · Any currency
 </div>
 """, unsafe_allow_html=True)
